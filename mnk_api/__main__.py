@@ -3,9 +3,16 @@ import uvicorn
 from routes.profile import profile
 from fastapi.middleware.cors import CORSMiddleware
 
+import sys
+import os
+
+# Добавляем путь к проекту в sys.path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 app = FastAPI(title="Физические практикумы", description="Познакомьтесь с интересными людьми")
 
 app.include_router(profile)
+
 
 # --------------------------
 # enable cors, or cross origin request something
@@ -32,3 +39,4 @@ app.add_middleware(
 if __name__ == "__main__":
     # uvicorn.run(app, port=8000)
     uvicorn.run(app, port=8000, host='0.0.0.0')
+

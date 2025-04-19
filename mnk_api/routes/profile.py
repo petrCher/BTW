@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from models.base import get_db
 from models.db import Profile
 from pydantic import BaseModel
+
 profile = APIRouter(prefix="/api/profiles", tags=["Profile"])
 
 class ProfileGet(BaseModel):
