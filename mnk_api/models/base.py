@@ -1,35 +1,77 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.ext.declarative import declarative_base
-from dotenv import find_dotenv, load_dotenv, dotenv_values
+from __future__ import annotations
+
+import re
+
+from sqlalchemy import not_
+from sqlalchemy.exc import NoResultFound
+from sqlalchemy.orm import Query, Session, as_declarative, declared_attr
+
+from mnk_api.exceptions import ObjectNotFound
 
 
+@as_declarative()
+class Base:
+    """Base class for all database entities"""
 
-# --------------------------
-# enable cors, or cross origin request something
-# allows frontend to talk to backend
-#
-# app = FastAPI()
+    @declared_attr
+    def __tablename__(cls) -> str:  # pylint: disable=no-self-argument
+        """Generate database table name automatically.
+        Convert CamelCase class name to snake_case db table name.
+        """
+        return re.sub(r"(?<!^)(?=[A-Z])", "_", cls.__name__).lower()
 
-# address of frontend server in quotes
-origins = [
-    "http://frontend:8080",
-]
+    def __repr__(self):
+        attrs = []
+        for c in self.__table__.columns:
+            attrs.append(f"{c.name}={getattr(self, c.name)}")
+        return "{}({})".format(c.__class__.__name__, ', '.join(attrs))
 
 
+class BaseDbModel(Base):
+    __abstract__ = True
 
-# load_dotenv(find_dotenv(".env"))
-# config = dotenv_values()
+    @classmethod
+    def create(cls, *, session: Session, **kwargs) -> BaseDbModel:
+        obj = cls(**kwargs)
+        session.add(obj)
+        session.flush()
+        return obj
 
-# engine = create_engine(config["DB_DSN"])
-engine = create_engine("postgresql://postgres@localhost:5433")
-db_session: Session = sessionmaker(bind=engine)
-Base = declarative_base()
+    @classmethod
+    def query(cls, *, with_deleted: bool = False, session: Session) -> Query:
+        """Get all objects with soft deletes"""
+        objs = session.query(cls)
+        if not with_deleted and hasattr(cls, "is_deleted"):
+            objs = objs.filter(not_(cls.is_deleted))
+        return objs
 
-def get_db():
-    try:
-        with db_session() as session:
-            yield session
-    finally:
-        session.close()
+    @classmethod
+    def get(cls, id: int | str, *, with_deleted=False, session: Session) -> BaseDbModel:
+        """Get object with soft deletes"""
+        objs = session.query(cls)
+        if not with_deleted and hasattr(cls, "is_deleted"):
+            objs = objs.filter(not_(cls.is_deleted))
+        try:
+            if hasattr(cls, "uuid"):
+                return objs.filter(cls.uuid == id).one()
+            return objs.filter(cls.id == id).one()
+        except NoResultFound:
+            raise ObjectNotFound(cls, id)
 
+    @classmethod
+    def update(cls, id: int | str, *, session: Session, **kwargs) -> BaseDbModel:
+        obj = cls.get(id, session=session)
+        for k, v in kwargs.items():
+            setattr(obj, k, v)
+        session.flush()
+        return obj
+
+    @classmethod
+    def delete(cls, id: int | str, *, session: Session) -> None:
+        """Soft delete object if possible, else hard delete"""
+        obj = cls.get(id, session=session)
+        if hasattr(obj, "is_deleted"):
+            obj.is_deleted = True
+        else:
+            session.delete(obj)
+        session.flush()
