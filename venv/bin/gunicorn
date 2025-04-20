@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/Users/petr/Documents/Черкасов Петр/МГУ/Хакатон/BTW-1/venv/bin/python3.11" "$0" "$@"
+'''exec' "/Users/petr/Documents/Черкасов Петр/МГУ/Хакатон/Temp2/BTW-1/venv/bin/python3.11" "$0" "$@"
 ' '''
 # -*- coding: utf-8 -*-
 import re
