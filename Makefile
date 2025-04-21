@@ -11,3 +11,9 @@ db:
 
 migrate:
 	alembic revision --autogenerate -m "init" && alembic upgrade head
+
+full_configure:
+	configure
+	db
+	migrate
+	run
